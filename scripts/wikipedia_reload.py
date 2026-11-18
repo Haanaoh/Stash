@@ -4,6 +4,7 @@ Utilisation :
     python scripts/wikipedia_reload.py                          # page par défaut, 3 chargements
     python scripts/wikipedia_reload.py https://fr.wikipedia.org/wiki/Python_(langage) -n 5 -i 10
     python scripts/wikipedia_reload.py URL -n 0                 # recharge sans fin (Ctrl+C pour arrêter)
+    python scripts/wikipedia_reload.py URL -n 0 -i 60 --duration 24   # toutes les minutes pendant 24 h
 
 À chaque chargement, le script affiche ce qu'il trouve dans l'HTML (titre, taille, révision,
 nombre de liens et d'images, sections) et signale si la page a changé depuis le chargement précédent.
@@ -96,6 +97,7 @@ def main() -> int:
     args.add_argument("url", nargs="?", default=DEFAULT_URL, help="page Wikipedia à ouvrir")
     args.add_argument("-n", "--times", type=int, default=3, help="nombre de chargements (0 = sans fin)")
     args.add_argument("-i", "--interval", type=float, default=5.0, help="secondes entre deux chargements")
+    args.add_argument("--duration", type=float, metavar="HEURES", help="s'arrête au bout de ce nombre d'heures")
     args.add_argument("--save", metavar="FICHIER", help="enregistre l'HTML du dernier chargement")
     opts = args.parse_args()
 
@@ -104,14 +106,17 @@ def main() -> int:
 
     previous = None
     count = 0
+    errors = 0
+    deadline = time.monotonic() + opts.duration * 3600 if opts.duration else None
     try:
-        while opts.times == 0 or count < opts.times:
+        while (opts.times == 0 or count < opts.times) and (deadline is None or time.monotonic() < deadline):
             count += 1
             label = "Chargement" if count == 1 else "Rechargement"
             print(f"\n[{time.strftime('%H:%M:%S')}] {label} n°{count} : {opts.url}")
             try:
                 status, html = fetch(opts.url)
             except (urllib.error.URLError, TimeoutError) as error:
+                errors += 1
                 print(f"  Échec : {error}")
             else:
                 info = inspect(html)
@@ -139,6 +144,7 @@ def main() -> int:
                 time.sleep(opts.interval)
     except KeyboardInterrupt:
         print("\nArrêté.")
+    print(f"\nTerminé à {time.strftime('%H:%M:%S')} : {count} chargement(s), dont {errors} échec(s).")
     return 0
 
 
