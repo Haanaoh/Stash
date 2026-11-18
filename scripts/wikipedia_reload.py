@@ -24,6 +24,8 @@ from html.parser import HTMLParser
 DEFAULT_URL = "https://fr.wikipedia.org/wiki/Wikip%C3%A9dia"
 # Wikipedia refuse les requêtes sans User-Agent descriptif.
 USER_AGENT = "WikipediaReloadScript/1.0 (script de test personnel)"
+# Valeurs que Wikipedia change à chaque requête sans que la page change : on les ignore pour comparer.
+VOLATILE = re.compile(r'"(wgRequestId|wgHostname|wgBackendResponseTime)":("[^"]*"|\d+)')
 
 
 class PageInspector(HTMLParser):
@@ -85,7 +87,7 @@ def inspect(html: str) -> dict:
         "links": parser.links,
         "images": parser.images,
         "headings": parser.headings,
-        "hash": hashlib.sha256(html.encode("utf-8")).hexdigest()[:12],
+        "hash": hashlib.sha256(VOLATILE.sub("", html).encode("utf-8")).hexdigest()[:12],
     }
 
 
